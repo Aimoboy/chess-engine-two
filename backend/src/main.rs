@@ -41,11 +41,6 @@ async fn rpc_handler(payload: web::Json<RpcRequest>) -> impl Responder {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let test = RpcRequest {
-        method: RpcMethod::Example( ExampleArgs { a: 1, b: 2 })
-    };
-    println!("{}", serde_json::to_string(&test)?);
-
     HttpServer::new(|| {
         App::new().route("/rpc", web::post().to(rpc_handler))
     })
@@ -54,4 +49,4 @@ async fn main() -> std::io::Result<()> {
     .await
 }
 
-// curl -X POST http://127.0.0.1:8080/rpc -H "Content-Type: application/json" -d 100
+// curl -X POST http://127.0.0.1:8080/rpc -H "Content-Type: application/json" -d "{\"method\":{\"Example\":{\"a\":1,\"b\":2}}}"
