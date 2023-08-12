@@ -8,8 +8,18 @@ struct ExampleArgs {
 }
 
 #[derive(Deserialize, Serialize)]
+struct ExampleResultArgs {
+    res: i32
+}
+
+#[derive(Deserialize, Serialize)]
 enum RpcMethod {
     Example(ExampleArgs)
+}
+
+#[derive(Deserialize, Serialize)]
+enum RpcResult {
+    ExampleResult(ExampleResultArgs)
 }
 
 #[derive(Deserialize, Serialize)]
@@ -19,7 +29,7 @@ struct RpcRequest {
 
 #[derive(Deserialize, Serialize)]
 struct RpcResponse {
-    result: i32
+    result: RpcResult
 }
 
 
@@ -27,13 +37,13 @@ async fn rpc_handler(payload: web::Json<RpcRequest>) -> impl Responder {
 
     // Handle RPC requests here
     match &payload.method {
-        RpcMethod::Example(args) => {
+        RpcMethod::Example(_args) => {
             // Code here
         }
     }
 
     let response = RpcResponse {
-        result: 10
+        result: RpcResult::ExampleResult(ExampleResultArgs { res: 10 })
     };
 
     HttpResponse::Ok().json(response)
