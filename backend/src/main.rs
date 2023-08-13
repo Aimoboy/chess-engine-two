@@ -1,4 +1,5 @@
-use actix_web::{web, App, HttpServer};
+use actix_web::{web, http, App, HttpServer};
+use actix_cors::Cors;
 
 mod rpc;
 use crate::rpc::rpc_handler;
@@ -6,11 +7,19 @@ use crate::rpc::rpc_handler;
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     HttpServer::new(|| {
-        App::new().route("/rpc", web::post().to(rpc_handler))
+        let cors = Cors::default()
+        .allowed_origin("http://localhost:4200")
+        .allowed_methods(vec!["POST"])
+        .allowed_headers(vec![http::header::AUTHORIZATION, http::header::ACCEPT])
+        .allowed_header(http::header::CONTENT_TYPE);
+        
+        App::new()
+        .wrap(cors)
+        .route("/", web::post().to(rpc_handler))
     })
     .bind("127.0.0.1:8080")?
     .run()
     .await
 }
 
-// curl -X POST http://127.0.0.1:8080/rpc -H "Content-Type: application/json" -d "{\"method\":{\"Example\":{\"a\":1,\"b\":2}}}"
+// curl -X POST http://127.0.0.1:8080/ -H "Content-Type: application/json" -d "{\"Example\":{\"a\":1,\"b\":2}}"
