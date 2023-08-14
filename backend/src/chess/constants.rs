@@ -1,32 +1,32 @@
 
 struct Constants {
-
+    
 }
 
 impl Constants {
-
     fn get_all_possible_combinations_of_bits(number: u64) -> Vec<u64> {
+        let mut res: Vec<u64> = Vec::with_capacity(2_usize.pow(number.count_ones()));
+
+        Self::get_all_possible_combinations_of_bits_helper(number, &mut res);
+
+        res
+    }
+
+    fn get_all_possible_combinations_of_bits_helper(number: u64, vec: &mut Vec<u64>) {
         if number == 0 {
-            return vec![0];
+            vec.push(0);
+            return;
         }
 
-        let mut highest_bit: i32 = 0;
-        for i in 1..64 {
-            if (1 << i) & number > 0 {
-                highest_bit = i;
-            }
-        }
+        let highest_bit = 63 - number.leading_zeros();
         let highest_bit_num = 1 << highest_bit;
 
-        let res: Vec<u64> = Self::get_all_possible_combinations_of_bits(number - highest_bit_num);
-        let mut new_res = Vec::with_capacity(res.capacity() * 2);
-        new_res.extend(res.clone());
+        Self::get_all_possible_combinations_of_bits_helper(number - highest_bit_num, vec);
 
-        for num in res {
-            new_res.push(num + highest_bit_num);
+        let length = vec.len();
+        for i in 0..length {
+            vec.push(vec[i] + highest_bit_num);
         }
-
-        new_res
     }
 }
 
