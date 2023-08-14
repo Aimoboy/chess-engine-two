@@ -8,6 +8,7 @@ pub mod chess {
     pub mod enums {
         pub mod chess_color;
     }
+    pub mod constants;
 }
 
 #[actix_web::main]
