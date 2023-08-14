@@ -1,5 +1,5 @@
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ChessColor {
     White,
     Black
@@ -11,5 +11,16 @@ impl ChessColor {
             ChessColor::White => ChessColor::Black,
             ChessColor::Black => ChessColor::White
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_opposite_color() {
+        assert_eq!(ChessColor::White, ChessColor::Black.get_opposite_color());
+        assert_eq!(ChessColor::Black, ChessColor::White.get_opposite_color());
     }
 }
