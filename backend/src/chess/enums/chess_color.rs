@@ -20,7 +20,7 @@ mod tests {
 
     #[test]
     fn test_get_opposite_color() {
-        assert_eq!(ChessColor::White, ChessColor::Black.get_opposite_color());
-        assert_eq!(ChessColor::Black, ChessColor::White.get_opposite_color());
+        assert_eq!(ChessColor::White, ChessColor::Black.get_opposite_color(), "The opposite of black should be white.");
+        assert_eq!(ChessColor::Black, ChessColor::White.get_opposite_color(), "The opposite of white should be black.");
     }
 }
