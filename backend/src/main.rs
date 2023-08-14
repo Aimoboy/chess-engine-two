@@ -4,6 +4,12 @@ use actix_cors::Cors;
 mod rpc;
 use crate::rpc::rpc_handler;
 
+pub mod chess {
+    pub mod enums {
+        pub mod chess_color;
+    }
+}
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     HttpServer::new(|| {
