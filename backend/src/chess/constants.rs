@@ -4,13 +4,13 @@ use std::collections::hash_map::RandomState;
 use crate::chess::enums::chess_color::ChessColor;
 
 struct Constants {
-    rook_threaten_hashmap: HashMap<u64, u64>
+    rook_line_mask_hashmap: HashMap<u64, u64>
 }
 
 impl Constants {
     pub fn new(&self) -> Self {
         Constants {
-            rook_threaten_hashmap: Self::make_rook_line_mask_dict()
+            rook_line_mask_hashmap: Self::make_rook_line_mask_hashmap()
         }
     }
 
@@ -52,17 +52,17 @@ impl Constants {
         row * 8 + col
     }
 
-    fn make_rook_line_mask_dict() -> HashMap<u64, u64> {
+    fn make_rook_line_mask_hashmap() -> HashMap<u64, u64> {
         let mut rook_line_mask_hashmap: HashMap<u64, u64> = HashMap::with_hasher(Self::get_new_hash_builder());
 
         for i in 0..64 {
-            rook_line_mask_hashmap.insert(i, Self::make_rook_line_mask_dict_helper(i));
+            rook_line_mask_hashmap.insert(i, Self::make_rook_line_mask_hashmap_helper(i));
         }
 
         rook_line_mask_hashmap
     }
 
-    fn make_rook_line_mask_dict_helper(rook_position: u64) -> u64 {
+    fn make_rook_line_mask_hashmap_helper(rook_position: u64) -> u64 {
         let (col, row) = Self::get_corrdinates_from_bit_position(rook_position);
         let mut res: u64 = 0;
 
@@ -161,8 +161,8 @@ mod tests {
 
     #[test]
     fn test_make_rook_line_mask_dict_helper() {
-        assert_eq!(Constants::make_rook_line_mask_dict_helper(0), 72_340_172_838_076_926, "Rook bit position 0.");
-        assert_eq!(Constants::make_rook_line_mask_dict_helper(7), 9_259_542_123_273_814_143, "Rook bit position 7.");
-        assert_eq!(Constants::make_rook_line_mask_dict_helper(25), 144_680_349_887_234_562, "Rook bit position 25.");
+        assert_eq!(Constants::make_rook_line_mask_hashmap_helper(0), 72_340_172_838_076_926, "Rook bit position 0.");
+        assert_eq!(Constants::make_rook_line_mask_hashmap_helper(7), 9_259_542_123_273_814_143, "Rook bit position 7.");
+        assert_eq!(Constants::make_rook_line_mask_hashmap_helper(25), 144_680_349_887_234_562, "Rook bit position 25.");
     }
 }
