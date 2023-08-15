@@ -5,14 +5,18 @@ use std::collections::hash_map::RandomState;
 
 struct Constants {
     rook_line_mask_hashmap: HashMap<u64, u64>, // Input: position, Output: line mask
-    rook_threaten_hashmap: HashMap<(u64, u64), u64> // Input: (position, pieces on lines), Output: threatened spaces
+    rook_threaten_hashmap: HashMap<(u64, u64), u64>, // Input: (position, pieces on lines), Output: threatened spaces
+    bishop_line_mask_hashmap: HashMap<u64, u64>, // Input: position, Output: line mask
+    bishop_threaten_hashmap: HashMap<(u64, u64), u64>, // Input: (position, pieces on lines), Output: threatened spaces
 }
 
 impl Constants {
     pub fn new(&self) -> Self {
         Constants {
             rook_line_mask_hashmap: Self::make_rook_line_mask_hashmap(),
-            rook_threaten_hashmap: Self::make_rook_threaten_hashmap()
+            rook_threaten_hashmap: Self::make_rook_threaten_hashmap(),
+            bishop_line_mask_hashmap: Self::make_bishop_line_mask_hashmap(),
+            bishop_threaten_hashmap: Self::make_bishop_threaten_hashmap()
         }
     }
 
@@ -46,7 +50,7 @@ impl Constants {
     }
 
     // The coordinates are (col, row) and the positions start from the lower right as 0 to the upper left as 63
-    fn get_corrdinates_from_bit_position(bit_position: u64) -> (u64, u64) {
+    fn get_coordinates_from_bit_position(bit_position: u64) -> (u64, u64) {
         (bit_position % 8, bit_position / 8)
     }
 
@@ -58,7 +62,6 @@ impl Constants {
         let mut rook_line_mask_hashmap: HashMap<u64, u64> = HashMap::with_hasher(Self::get_new_hash_builder());
 
         for i in 0..64 {
-            // rook_line_mask_hashmap.insert(i, Self::make_rook_line_mask_hashmap_helper(i));
             rook_line_mask_hashmap.insert(i, Self::make_rook_threaten_hashmap_helper(i, 0));
         }
 
@@ -81,7 +84,7 @@ impl Constants {
     }
 
     fn make_rook_threaten_hashmap_helper(rook_position: u64, other_pieces: u64) -> u64 {
-        let (col, row) = Self::get_corrdinates_from_bit_position(rook_position);
+        let (col, row) = Self::get_coordinates_from_bit_position(rook_position);
         let mut res = 0;
 
         // Right
@@ -128,6 +131,82 @@ impl Constants {
             }
         }
 
+        res
+    }
+
+    fn make_bishop_line_mask_hashmap() -> HashMap<u64, u64> {
+        let mut bishop_line_mask_hashmap: HashMap<u64, u64> = HashMap::with_hasher(Self::get_new_hash_builder());
+
+        for i in 0..64 {
+            bishop_line_mask_hashmap.insert(i, Self::make_bishop_threaten_hashmap_helper(i, 0));
+        }
+
+        bishop_line_mask_hashmap
+    }
+
+    fn make_bishop_threaten_hashmap() -> HashMap<(u64, u64), u64> {
+        let mut bishop_threaten_hashmap: HashMap<(u64, u64), u64> = HashMap::with_hasher(Self::get_new_hash_builder());
+
+        for position in 0..64 {
+            let line_mask = Self::make_bishop_threaten_hashmap_helper(position, 0);
+            let other_piece_combinations: Vec<u64> = Self::get_all_possible_combinations_of_bits(line_mask);
+
+            for combination in other_piece_combinations {
+                bishop_threaten_hashmap.insert((position, combination), Self::make_bishop_threaten_hashmap_helper(position, combination));
+            }
+        }
+
+        bishop_threaten_hashmap
+    }
+
+    fn make_bishop_threaten_hashmap_helper(bishop_position: u64, other_pieces: u64) -> u64 {
+        let (col, row) = Self::get_coordinates_from_bit_position(bishop_position);
+        let mut res = 0;
+        
+        // Upper-Right
+        for i in 1..std::cmp::min(col, 8 - row) {
+            let num = Self::get_bit_position_from_coordinates(col - i, row + i);
+            let num = 1 << num;
+            res += num;
+
+            if num & other_pieces > 0 {
+                break;
+            }
+        }
+
+        // Lower-Right
+        for i in 1..std::cmp::min(col + 1, row + 1) {
+            let num = Self::get_bit_position_from_coordinates(col - i, row - i);
+            let num = 1 << num;
+            res += num;
+
+            if num & other_pieces > 0 {
+                break;
+            }
+        }
+
+        // Lower-Left
+        for i in 1..std::cmp::min(8 - col, row + 1) {
+            let num = Self::get_bit_position_from_coordinates(col + i, row - i);
+            let num = 1 << num;
+            res += num;
+
+            if num & other_pieces > 0 {
+                break;
+            }
+        }
+
+        // Upper-Left
+        for i in 1..std::cmp::min(8 - col, 8 - row) {
+            let num = Self::get_bit_position_from_coordinates(col + i, row + i);
+            let num = 1 << num;
+            res += num;
+
+            if num & other_pieces > 0 {
+                break;
+            }
+        }
+        
         res
     }
 }
@@ -186,10 +265,10 @@ mod tests {
 
     #[test]
     fn test_get_coordinates_from_bit_position() {
-        assert_eq!(Constants::get_corrdinates_from_bit_position(0), (0, 0), "Bit position 0.");
-        assert_eq!(Constants::get_corrdinates_from_bit_position(7), (7, 0), "Bit position 7.");
-        assert_eq!(Constants::get_corrdinates_from_bit_position(14), (6, 1), "Bit position 14.");
-        assert_eq!(Constants::get_corrdinates_from_bit_position(63), (7, 7), "Bit position 63.");
+        assert_eq!(Constants::get_coordinates_from_bit_position(0), (0, 0), "Bit position 0.");
+        assert_eq!(Constants::get_coordinates_from_bit_position(7), (7, 0), "Bit position 7.");
+        assert_eq!(Constants::get_coordinates_from_bit_position(14), (6, 1), "Bit position 14.");
+        assert_eq!(Constants::get_coordinates_from_bit_position(63), (7, 7), "Bit position 63.");
     }
 
     #[test]
@@ -224,5 +303,27 @@ mod tests {
         // Other pieces on the lines
         assert_eq!(*hashmap.get(&(28, 17_592_253_153_280)).unwrap(), 17_664_865_996_816, "Rook bit position 28, other pieces.");
         assert_eq!(*hashmap.get(&(4, 4_503_599_627_370_497)).unwrap(), 4_521_260_802_380_015, "Rook bit position 4, other pieces.");
+    }
+
+    #[test]
+    fn testmake_bishop_threaten_hashmap_helper() {
+        // No other pieces on the lines
+        assert_eq!(Constants::make_bishop_threaten_hashmap_helper(0, 0), 9_241_421_688_590_303_744, "Bishop bit position 0, no other pieces.");
+        assert_eq!(Constants::make_bishop_threaten_hashmap_helper(63, 0), 18_049_651_735_527_937, "Bishop bit position 63, no other pieces.");
+
+        // Other pieces on the lines
+        assert_eq!(Constants::make_bishop_threaten_hashmap_helper(12, 67_108_864), 550_899_286_056, "Bishop bit position 12, other pieces.");
+    }
+
+    #[test]
+    fn testmake_bishop_threaten_hashmap() {
+        let hashmap: HashMap<(u64, u64), u64> = Constants::make_bishop_threaten_hashmap();
+
+        // No other pieces on the lines
+        assert_eq!(*hashmap.get(&(0, 0)).unwrap(), 9_241_421_688_590_303_744, "Bishop bit position 0, no other pieces.");
+        assert_eq!(*hashmap.get(&(63, 0)).unwrap(), 18_049_651_735_527_937, "Bishop bit position 63, no other pieces.");
+
+        // Other pieces on the lines
+        assert_eq!(*hashmap.get(&(12, 67_108_864)).unwrap(), 550_899_286_056, "Bishop bit position 12, other pieces.");
     }
 }
