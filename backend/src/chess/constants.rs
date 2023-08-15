@@ -22,7 +22,7 @@ const PAWN_LEFT_MASK: u64 = 9_259_542_123_273_814_144;
 const PAWN_RIGHT_MASK: u64 = 72_340_172_838_076_673;
 
 impl Constants {
-    pub fn new(&self) -> Self {
+    pub fn new() -> Self {
         Constants {
             rook_attack_mask_hashmap: Self::make_attack_mask_hashmap(Self::rook_threat_generator),
             rook_threat_hashmap: Self::make_threat_hashmap(Self::rook_threat_generator),

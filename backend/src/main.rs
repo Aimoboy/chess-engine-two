@@ -9,6 +9,7 @@ pub mod chess {
         pub mod chess_color;
         pub mod chess_piece;
     }
+    pub mod bitboard;
     pub mod constants;
 }
 

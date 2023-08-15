@@ -1,6 +1,6 @@
 
 #[derive(Debug, PartialEq, Clone, Copy)]
-enum ChessPiece {
+pub enum ChessPiece {
     WhitePawn = 0,
     WhiteRook = 1,
     WhiteKnight = 2,
