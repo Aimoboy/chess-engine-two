@@ -4,23 +4,27 @@ use std::collections::HashMap;
 use std::collections::hash_map::RandomState;
 
 struct Constants {
-    rook_attack_mask_hashmap: HashMap<u64, u64>, // Input: position, Output: line mask
-    rook_threaten_hashmap: HashMap<(u64, u64), u64>, // Input: (position, pieces on possibly threatened pieces), Output: threatened spaces
-    bishop_attack_mask_hashmap: HashMap<u64, u64>, // Input: position, Output: line mask
-    bishop_threaten_hashmap: HashMap<(u64, u64), u64>, // Input: (position, pieces on possibly threatened pieces), Output: threatened spaces
-    knight_attack_mask_hashmap: HashMap<u64, u64>, // Input: position, Output: line mask
-    knight_threaten_hashmap: HashMap<(u64, u64), u64>, // Input: (position, pieces on possibly threatened pieces), Output: threatened spaces
+    rook_attack_mask_hashmap: HashMap<u64, u64>, // Input: position, Output: attack mask
+    rook_threat_hashmap: HashMap<(u64, u64), u64>, // Input: (position, pieces on possibly threatened pieces), Output: threatened spaces
+    bishop_attack_mask_hashmap: HashMap<u64, u64>, // Input: position, Output: attack mask
+    bishop_threat_hashmap: HashMap<(u64, u64), u64>, // Input: (position, pieces on possibly threatened pieces), Output: threatened spaces
+    knight_attack_mask_hashmap: HashMap<u64, u64>, // Input: position, Output: attack mask
+    knight_threat_hashmap: HashMap<(u64, u64), u64>, // Input: (position, pieces on possibly threatened pieces), Output: threatened spaces
+    king_attack_mask_hashmap: HashMap<u64, u64>, // Input: position, Output: attack mask
+    king_threat_hashmap: HashMap<(u64, u64), u64> // Input: (position, pieces on possibly threatened pieces), Output: threatened spaces
 }
 
 impl Constants {
     pub fn new(&self) -> Self {
         Constants {
             rook_attack_mask_hashmap: Self::make_attack_mask_hashmap(Self::rook_threat_generator),
-            rook_threaten_hashmap: Self::make_threaten_hashmap(Self::rook_threat_generator),
+            rook_threat_hashmap: Self::make_threat_hashmap(Self::rook_threat_generator),
             bishop_attack_mask_hashmap: Self::make_attack_mask_hashmap(Self::bishop_threat_generator),
-            bishop_threaten_hashmap: Self::make_threaten_hashmap(Self::bishop_threat_generator),
+            bishop_threat_hashmap: Self::make_threat_hashmap(Self::bishop_threat_generator),
             knight_attack_mask_hashmap: Self::make_attack_mask_hashmap(Self::knight_threat_generator),
-            knight_threaten_hashmap: Self::make_threaten_hashmap(Self::knight_threat_generator)
+            knight_threat_hashmap: Self::make_threat_hashmap(Self::knight_threat_generator),
+            king_attack_mask_hashmap: Self::make_attack_mask_hashmap(Self::king_threat_generator),
+            king_threat_hashmap: Self::make_threat_hashmap(Self::king_threat_generator)
         }
     }
 
@@ -72,19 +76,19 @@ impl Constants {
         attack_mask_hashmap
     }
 
-    fn make_threaten_hashmap(piece_threat_generator: fn(u64, u64) -> u64) -> HashMap<(u64, u64), u64> {
-        let mut threaten_hashmap: HashMap<(u64, u64), u64> = HashMap::with_hasher(Self::get_new_hash_builder());
+    fn make_threat_hashmap(piece_threat_generator: fn(u64, u64) -> u64) -> HashMap<(u64, u64), u64> {
+        let mut threat_hashmap: HashMap<(u64, u64), u64> = HashMap::with_hasher(Self::get_new_hash_builder());
 
         for position in 0..64 {
             let attack_mask = piece_threat_generator(position, 0);
             let other_piece_combinations: Vec<u64> = Self::get_all_possible_combinations_of_bits(attack_mask);
 
             for combination in other_piece_combinations {
-                threaten_hashmap.insert((position, combination), piece_threat_generator(position, combination));
+                threat_hashmap.insert((position, combination), piece_threat_generator(position, combination));
             }
         }
 
-        threaten_hashmap
+        threat_hashmap
     }
 
     fn rook_threat_generator(rook_position: u64, other_pieces: u64) -> u64 {
@@ -195,8 +199,33 @@ impl Constants {
         let row = row as i32;
 
         let mut res = 0;
-
         let relative_positions: Vec<(i32, i32)> = vec![(1, 2), (2, 1), (-1, -2), (-2, -1), (-1, 2), (-2, 1), (1, -2), (2, -1)];
+
+        for (col_rel, row_rel) in relative_positions {
+            let col_sum = col + col_rel;
+            let row_sum = row + row_rel;
+
+            if col_sum < 0 || col_sum > 7 {
+                continue;
+            }
+
+            if row_sum < 0 || row_sum > 7 {
+                continue;
+            }
+
+            res += 1 << Self::get_bit_position_from_coordinates(col_sum as u64, row_sum as u64);
+        }
+
+        res
+    }
+
+    fn king_threat_generator(king_position: u64, _other_pieces: u64) -> u64 {
+        let (col, row) = Self::get_coordinates_from_bit_position(king_position);
+        let col = col as i32;
+        let row = row as i32;
+
+        let mut res = 0;
+        let relative_positions: Vec<(i32, i32)> = vec![(1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1), (1, 0)];
 
         for (col_rel, row_rel) in relative_positions {
             let col_sum = col + col_rel;
@@ -298,8 +327,8 @@ mod tests {
     }
 
     #[test]
-    fn test_make_rook_threaten_hashmap() {
-        let hashmap: HashMap<(u64, u64), u64> = Constants::make_threaten_hashmap(Constants::rook_threat_generator);
+    fn test_make_rook_threat_hashmap() {
+        let hashmap: HashMap<(u64, u64), u64> = Constants::make_threat_hashmap(Constants::rook_threat_generator);
 
         // No other pieces
         assert_eq!(*hashmap.get(&(0, 0)).unwrap(), 72_340_172_838_076_926, "Rook bit position 0, no other pieces.");
@@ -323,8 +352,8 @@ mod tests {
     }
 
     #[test]
-    fn test_make_bishop_threaten_hashmap() {
-        let hashmap: HashMap<(u64, u64), u64> = Constants::make_threaten_hashmap(Constants::bishop_threat_generator);
+    fn test_make_bishop_threat_hashmap() {
+        let hashmap: HashMap<(u64, u64), u64> = Constants::make_threat_hashmap(Constants::bishop_threat_generator);
 
         // No other pieces
         assert_eq!(*hashmap.get(&(0, 0)).unwrap(), 9_241_421_688_590_303_744, "Bishop bit position 0, no other pieces.");
@@ -347,8 +376,8 @@ mod tests {
     }
 
     #[test]
-    fn test_make_knight_threaten_hashmap() {
-        let hashmap: HashMap<(u64, u64), u64> = Constants::make_threaten_hashmap(Constants::knight_threat_generator);
+    fn test_make_knight_threat_hashmap() {
+        let hashmap: HashMap<(u64, u64), u64> = Constants::make_threat_hashmap(Constants::knight_threat_generator);
 
         // No other pieces
         assert_eq!(*hashmap.get(&(0, 0)).unwrap(), 132_096, "Knight bit position 0, no other pieces.");
@@ -357,5 +386,29 @@ mod tests {
         // Other pieces
         assert_eq!(*hashmap.get(&(0, 131_072)).unwrap(), 132_096, "Knight bit position 0, other pieces.");
         assert_eq!(*hashmap.get(&(28, 43_980_469_315_584)).unwrap(), 44_272_527_353_856, "Knight bit position 28, other pieces.");
+    }
+
+    #[test]
+    fn test_king_threat_generator() {
+        // No other pieces
+        assert_eq!(Constants::king_threat_generator(0, 0), 770, "King bit position 0, no other pieces.");
+        assert_eq!(Constants::king_threat_generator(14, 0), 14_721_248, "King bit position 14, no other pieces.");
+
+        // Other pieces
+        assert_eq!(Constants::king_threat_generator(0, 2), 770, "King bit position 0, other pieces.");
+        assert_eq!(Constants::king_threat_generator(14, 10_526_720), 14_721_248, "King bit position 0, other pieces.");
+    }
+
+    #[test]
+    fn test_make_king_threat_hashmap() {
+        let hashmap: HashMap<(u64, u64), u64> = Constants::make_threat_hashmap(Constants::king_threat_generator);
+
+        // No other pieces
+        assert_eq!(*hashmap.get(&(0, 0)).unwrap(), 770, "King bit position 0, no other pieces.");
+        assert_eq!(*hashmap.get(&(14, 0)).unwrap(), 14_721_248, "King bit position 14, no other pieces.");
+
+        // Other pieces
+        assert_eq!(*hashmap.get(&(0, 2)).unwrap(), 770, "King bit position 0, other pieces.");
+        assert_eq!(*hashmap.get(&(14, 10_526_720)).unwrap(), 14_721_248, "King bit position 0, other pieces.");
     }
 }
