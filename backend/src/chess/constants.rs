@@ -11,8 +11,15 @@ struct Constants {
     knight_attack_mask_hashmap: HashMap<u64, u64>, // Input: position, Output: attack mask
     knight_threat_hashmap: HashMap<(u64, u64), u64>, // Input: (position, pieces on possibly threatened pieces), Output: threatened spaces
     king_attack_mask_hashmap: HashMap<u64, u64>, // Input: position, Output: attack mask
-    king_threat_hashmap: HashMap<(u64, u64), u64> // Input: (position, pieces on possibly threatened pieces), Output: threatened spaces
+    king_threat_hashmap: HashMap<(u64, u64), u64>, // Input: (position, pieces on possibly threatened pieces), Output: threatened spaces
+    pawn_middle_mask: u64,
+    pawn_left_mask: u64,
+    pawn_right_mask: u64
 }
+
+const PAWN_MIDDLE_MASK: u64 = 9_114_861_777_597_660_798;
+const PAWN_LEFT_MASK: u64 = 9_259_542_123_273_814_144;
+const PAWN_RIGHT_MASK: u64 = 72_340_172_838_076_673;
 
 impl Constants {
     pub fn new(&self) -> Self {
@@ -24,7 +31,10 @@ impl Constants {
             knight_attack_mask_hashmap: Self::make_attack_mask_hashmap(Self::knight_threat_generator),
             knight_threat_hashmap: Self::make_threat_hashmap(Self::knight_threat_generator),
             king_attack_mask_hashmap: Self::make_attack_mask_hashmap(Self::king_threat_generator),
-            king_threat_hashmap: Self::make_threat_hashmap(Self::king_threat_generator)
+            king_threat_hashmap: Self::make_threat_hashmap(Self::king_threat_generator),
+            pawn_middle_mask: PAWN_MIDDLE_MASK,
+            pawn_left_mask: PAWN_LEFT_MASK,
+            pawn_right_mask: PAWN_RIGHT_MASK
         }
     }
 
