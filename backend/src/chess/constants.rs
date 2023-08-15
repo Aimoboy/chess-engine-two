@@ -11,7 +11,8 @@ struct Constants {
     knight_attack_mask_hashmap: HashMap<u64, u64>, // Input: position, Output: attack mask
     knight_threat_hashmap: HashMap<(u64, u64), u64>, // Input: (position, pieces on possibly threatened pieces), Output: threatened spaces
     king_attack_mask_hashmap: HashMap<u64, u64>, // Input: position, Output: attack mask
-    king_threat_hashmap: HashMap<(u64, u64), u64> // Input: (position, pieces on possibly threatened pieces), Output: threatened spaces
+    king_threat_hashmap: HashMap<(u64, u64), u64>, // Input: (position, pieces on possibly threatened pieces), Output: threatened spaces
+    queen_attack_mask_hashmap: HashMap<u64, u64> // Input: position, Output: attack mask
 }
 
 impl Constants {
@@ -24,7 +25,8 @@ impl Constants {
             knight_attack_mask_hashmap: Self::make_attack_mask_hashmap(Self::knight_threat_generator),
             knight_threat_hashmap: Self::make_threat_hashmap(Self::knight_threat_generator),
             king_attack_mask_hashmap: Self::make_attack_mask_hashmap(Self::king_threat_generator),
-            king_threat_hashmap: Self::make_threat_hashmap(Self::king_threat_generator)
+            king_threat_hashmap: Self::make_threat_hashmap(Self::king_threat_generator),
+            queen_attack_mask_hashmap: Self::make_attack_mask_hashmap(Self::queen_threat_generator)
         }
     }
 
@@ -244,6 +246,10 @@ impl Constants {
 
         res
     }
+
+    fn queen_threat_generator(queen_position: u64, other_pieces: u64) -> u64 {
+        Self::rook_threat_generator(queen_position, other_pieces) + Self::bishop_threat_generator(queen_position, other_pieces)
+    }
 }
 
 #[cfg(test)]
@@ -410,5 +416,16 @@ mod tests {
         // Other pieces
         assert_eq!(*hashmap.get(&(0, 2)).unwrap(), 770, "King bit position 0, other pieces.");
         assert_eq!(*hashmap.get(&(14, 10_526_720)).unwrap(), 14_721_248, "King bit position 0, other pieces.");
+    }
+
+    #[test]
+    fn test_queen_threat_generator() {
+        // No other pieces
+        assert_eq!(Constants::queen_threat_generator(0, 0), 9_313_761_861_428_380_670, "Queen bit position 0, no other pieces.");
+        assert_eq!(Constants::queen_threat_generator(29, 0), 2_460_276_499_189_639_204, "Queen bit position 29, no other pieces.");
+
+        // Other pieces
+        assert_eq!(Constants::queen_threat_generator(6, 70_368_745_226_240), 70_644_701_126_847, "Queen bit position 6, other pieces.");
+        assert_eq!(Constants::queen_threat_generator(50, 9_570_149_275_271_168), 1_025_147_349_145_518_080, "Queen bit position 50, other pieces.");
     }
 }
