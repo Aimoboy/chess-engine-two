@@ -7,6 +7,7 @@ use crate::rpc::rpc_handler;
 pub mod chess {
     pub mod enums {
         pub mod chess_color;
+        pub mod chess_piece;
     }
     pub mod constants;
 }
