@@ -3,23 +3,27 @@
 use std::collections::HashMap;
 use std::collections::hash_map::RandomState;
 
-struct Constants {
-    rook_attack_mask_hashmap: HashMap<u64, u64>, // Input: position, Output: attack mask
-    rook_threat_hashmap: HashMap<(u64, u64), u64>, // Input: (position, pieces on possibly threatened pieces), Output: threatened spaces
-    bishop_attack_mask_hashmap: HashMap<u64, u64>, // Input: position, Output: attack mask
-    bishop_threat_hashmap: HashMap<(u64, u64), u64>, // Input: (position, pieces on possibly threatened pieces), Output: threatened spaces
-    knight_attack_mask_hashmap: HashMap<u64, u64>, // Input: position, Output: attack mask
-    knight_threat_hashmap: HashMap<(u64, u64), u64>, // Input: (position, pieces on possibly threatened pieces), Output: threatened spaces
-    king_attack_mask_hashmap: HashMap<u64, u64>, // Input: position, Output: attack mask
-    king_threat_hashmap: HashMap<(u64, u64), u64>, // Input: (position, pieces on possibly threatened pieces), Output: threatened spaces
-    pawn_middle_mask: u64,
-    pawn_left_mask: u64,
-    pawn_right_mask: u64
+pub struct Constants {
+    pub rook_attack_mask_hashmap: HashMap<u64, u64>, // Input: position, Output: attack mask
+    pub rook_threat_hashmap: HashMap<(u64, u64), u64>, // Input: (position, pieces on possibly threatened pieces), Output: threatened spaces
+    pub bishop_attack_mask_hashmap: HashMap<u64, u64>, // Input: position, Output: attack mask
+    pub bishop_threat_hashmap: HashMap<(u64, u64), u64>, // Input: (position, pieces on possibly threatened pieces), Output: threatened spaces
+    pub knight_attack_mask_hashmap: HashMap<u64, u64>, // Input: position, Output: attack mask
+    pub knight_threat_hashmap: HashMap<(u64, u64), u64>, // Input: (position, pieces on possibly threatened pieces), Output: threatened spaces
+    pub king_attack_mask_hashmap: HashMap<u64, u64>, // Input: position, Output: attack mask
+    pub king_threat_hashmap: HashMap<(u64, u64), u64>, // Input: (position, pieces on possibly threatened pieces), Output: threatened spaces
+    pub pawn_middle_mask: u64,
+    pub pawn_left_mask: u64,
+    pub pawn_right_mask: u64,
+    pub num_to_bit_position_hashmap: HashMap<u64, Vec<u64>>,
+    pub num_to_bit_position_max_val: u64
 }
 
 const PAWN_MIDDLE_MASK: u64 = 9_114_861_777_597_660_798;
 const PAWN_LEFT_MASK: u64 = 9_259_542_123_273_814_144;
 const PAWN_RIGHT_MASK: u64 = 72_340_172_838_076_673;
+
+const NUM_TO_BIT_POSITION_MAX_VAL: u64 = 3;
 
 impl Constants {
     pub fn new() -> Self {
@@ -34,7 +38,9 @@ impl Constants {
             king_threat_hashmap: Self::make_threat_hashmap(Self::get_king_moves()),
             pawn_middle_mask: PAWN_MIDDLE_MASK,
             pawn_left_mask: PAWN_LEFT_MASK,
-            pawn_right_mask: PAWN_RIGHT_MASK
+            pawn_right_mask: PAWN_RIGHT_MASK,
+            num_to_bit_position_hashmap: Self::make_num_to_bit_positions_hashmap(NUM_TO_BIT_POSITION_MAX_VAL),
+            num_to_bit_position_max_val: NUM_TO_BIT_POSITION_MAX_VAL
         }
     }
 
@@ -178,6 +184,69 @@ impl Constants {
             vec![(1, -1)],
             vec![(1, 0)]
         ]
+    }
+
+    fn make_num_to_bit_positions_hashmap(max_positions: u64) -> HashMap<u64, Vec<u64>> {
+        let mut all_bit_positions: Vec<u64> = Vec::new();
+
+        for i in 1..(max_positions + 1) {
+            all_bit_positions.append(&mut Self::board_choose_n_all_combinations(i));
+        }
+
+        let mut hashmap: HashMap<u64, Vec<u64>> = HashMap::with_hasher(Self::get_new_hash_builder());
+        for bit_position in all_bit_positions {
+            hashmap.insert(bit_position, Self::find_bit_positions_from_num(bit_position));
+        }
+
+        hashmap
+    }
+
+    fn find_bit_positions_from_num(num: u64) -> Vec<u64> {
+        let mut num = num;
+        let mut res: Vec<u64> = Vec::new();
+
+        while num > 0 {
+            let pos = num.trailing_zeros() as u64;
+            res.push(pos);
+            num -= 1 << pos;
+        }
+
+        res
+    }
+
+    fn board_choose_n_all_combinations(num: u64) -> Vec<u64> {
+        if num < 1 {
+            panic!()
+        }
+
+        if num == 1 {
+            let mut res = Vec::with_capacity(64);
+            for i in 0..64 {
+                res.push(1 << i);
+            }
+            return res;
+        }
+
+        let rec_res: Vec<u64> = Self::board_choose_n_all_combinations(num - 1);
+        let mut new_res: Vec<u64> = Vec::new();
+
+        for res in rec_res {
+            for i in 0..64 {
+                let tmp: u64 = res + (1 << i);
+
+                if tmp.count_ones() < num as u32 {
+                    continue;
+                }
+
+                if new_res.contains(&tmp) {
+                    continue;
+                }
+
+                new_res.push(tmp);
+            }
+        }
+
+        new_res
     }
 }
 
@@ -353,5 +422,88 @@ mod tests {
         // Other pieces
         assert_eq!(*hashmap.get(&(0, 2)).unwrap(), 770, "King bit position 0, other pieces.");
         assert_eq!(*hashmap.get(&(14, 10_526_720)).unwrap(), 14_721_248, "King bit position 0, other pieces.");
+    }
+
+    #[test]
+    fn test_board_choose_n_all_combinations_1() {
+        let res: Vec<u64> = Constants::board_choose_n_all_combinations(1);
+
+        assert_eq!(res.len(), 64, "Correct length check.");
+
+        let mut res_clone = res.clone();
+        res_clone.sort();
+        res_clone.dedup();
+        assert_eq!(res_clone.len(), res.len(), "No duplicate check");
+
+        for item in res {
+            assert_eq!(item.count_ones(), 1, "Correct number of ones check.");
+        }
+    }
+
+    #[test]
+    fn test_board_choose_n_all_combinations_2() {
+        let res: Vec<u64> = Constants::board_choose_n_all_combinations(2);
+
+        assert_eq!(res.len(), 2_016, "Correct length check.");
+
+        let mut res_clone = res.clone();
+        res_clone.sort();
+        res_clone.dedup();
+        assert_eq!(res_clone.len(), res.len(), "No duplicate check");
+
+        for item in res {
+            assert_eq!(item.count_ones(), 2, "Correct number of ones check.");
+        }
+    }
+
+    #[test]
+    fn test_board_choose_n_all_combinations_3() {
+        let res: Vec<u64> = Constants::board_choose_n_all_combinations(3);
+
+        assert_eq!(res.len(), 41_664, "Correct length check.");
+
+        let mut res_clone = res.clone();
+        res_clone.sort();
+        res_clone.dedup();
+        assert_eq!(res_clone.len(), res.len(), "No duplicate check");
+
+        for item in res {
+            assert_eq!(item.count_ones(), 3, "Correct number of ones check.");
+        }
+    }
+
+    #[test]
+    fn test_find_bit_positions_from_num() {
+        let num = (1 << 10) + (1 << 5) + (1 << 60);
+        let res = Constants::find_bit_positions_from_num(num);
+
+        assert_eq!(res.len(), 3, "Should contain 3 items.");
+        assert!(res.contains(&10), "Should contain 10.");
+        assert!(res.contains(&5), "Should contain 5.");
+        assert!(res.contains(&60), "Should contain 60.");
+    }
+
+
+
+    #[test]
+    fn test_make_num_to_bit_positions_hashmap() {
+        let hashmap: HashMap<u64, Vec<u64>> = Constants::make_num_to_bit_positions_hashmap(3);
+
+        let num = (1 << 5) + (1 << 8) + (1 << 55);
+        let res = hashmap.get(&num).unwrap();
+
+        assert_eq!(res.len(), 3, "Should contain 3 items.");
+        assert!(res.contains(&5), "Should contain 5.");
+        assert!(res.contains(&8), "Should contain 8.");
+        assert!(res.contains(&55), "Should contain 55.");
+
+        assert!(!hashmap.contains_key(&0), "Should not contain 0.");
+
+        let num = (1 << 0) + (1 << 15);
+        let res = hashmap.get(&num).unwrap();
+
+        assert_eq!(res.len(), 2, "Should contain 2 items.");
+        assert!(res.contains(&0), "Should contain 0.");
+        assert!(res.contains(&15), "Should contain 15.");
     }
 }
