@@ -3,15 +3,20 @@
 use std::collections::HashMap;
 use std::collections::hash_map::RandomState;
 
+use super::enums::chess_color::ChessColor;
+
 pub struct Constants {
-    pub rook_attack_mask_hashmap: HashMap<u64, u64>, // Input: position, Output: attack mask
-    pub rook_threat_hashmap: HashMap<(u64, u64), u64>, // Input: (position, pieces on possibly threatened pieces), Output: threatened spaces
-    pub bishop_attack_mask_hashmap: HashMap<u64, u64>, // Input: position, Output: attack mask
-    pub bishop_threat_hashmap: HashMap<(u64, u64), u64>, // Input: (position, pieces on possibly threatened pieces), Output: threatened spaces
-    pub knight_attack_mask_hashmap: HashMap<u64, u64>, // Input: position, Output: attack mask
-    pub knight_threat_hashmap: HashMap<(u64, u64), u64>, // Input: (position, pieces on possibly threatened pieces), Output: threatened spaces
-    pub king_attack_mask_hashmap: HashMap<u64, u64>, // Input: position, Output: attack mask
-    pub king_threat_hashmap: HashMap<(u64, u64), u64>, // Input: (position, pieces on possibly threatened pieces), Output: threatened spaces
+    // Input: (color, position, other pieces), Output: threatened spaces/movable spaces
+    pub pawn_threat_hashmap: HashMap<(ChessColor, u64, u64), u64>,
+    pub pawn_move_hashmap: HashMap<(ChessColor, u64, u64), u64>,
+    pub rook_threat_hashmap: HashMap<(ChessColor, u64, u64), u64>,
+    pub rook_move_hashmap: HashMap<(ChessColor, u64, u64), u64>,
+    pub bishop_threat_hashmap: HashMap<(ChessColor, u64, u64), u64>,
+    pub bishop_move_hashmap: HashMap<(ChessColor, u64, u64), u64>,
+    pub knight_threat_hashmap: HashMap<(ChessColor, u64, u64), u64>,
+    pub knight_move_hashmap: HashMap<(ChessColor, u64, u64), u64>,
+    pub king_threat_hashmap: HashMap<(ChessColor, u64, u64), u64>,
+    pub king_move_hashmap: HashMap<(ChessColor, u64, u64), u64>,
     pub pawn_middle_mask: u64,
     pub pawn_left_mask: u64,
     pub pawn_right_mask: u64,
@@ -28,14 +33,16 @@ const NUM_TO_BIT_POSITION_MAX_VAL: u64 = 3;
 impl Constants {
     pub fn new() -> Self {
         Constants {
-            rook_attack_mask_hashmap: Self::make_attack_mask_hashmap(Self::get_rook_moves()),
-            rook_threat_hashmap: Self::make_threat_hashmap(Self::get_rook_moves()),
-            bishop_attack_mask_hashmap: Self::make_attack_mask_hashmap(Self::get_bishop_moves()),
-            bishop_threat_hashmap: Self::make_threat_hashmap(Self::get_bishop_moves()),
-            knight_attack_mask_hashmap: Self::make_attack_mask_hashmap(Self::get_knight_moves()),
-            knight_threat_hashmap: Self::make_threat_hashmap(Self::get_knight_moves()),
-            king_attack_mask_hashmap: Self::make_attack_mask_hashmap(Self::get_king_moves()),
-            king_threat_hashmap: Self::make_threat_hashmap(Self::get_king_moves()),
+            pawn_threat_hashmap: Self::make_threat_or_move_hashmap(Self::get_pawn_moves, true),
+            pawn_move_hashmap: Self::make_threat_or_move_hashmap(Self::get_pawn_moves, false),
+            rook_threat_hashmap: Self::make_threat_or_move_hashmap(Self::get_rook_moves, true),
+            rook_move_hashmap: Self::make_threat_or_move_hashmap(Self::get_rook_moves, false),
+            bishop_threat_hashmap: Self::make_threat_or_move_hashmap(Self::get_bishop_moves, true),
+            bishop_move_hashmap: Self::make_threat_or_move_hashmap(Self::get_bishop_moves, false),
+            knight_threat_hashmap: Self::make_threat_or_move_hashmap(Self::get_knight_moves, true),
+            knight_move_hashmap: Self::make_threat_or_move_hashmap(Self::get_knight_moves, false),
+            king_threat_hashmap: Self::make_threat_or_move_hashmap(Self::get_king_moves, true),
+            king_move_hashmap: Self::make_threat_or_move_hashmap(Self::get_king_moves, false),
             pawn_middle_mask: PAWN_MIDDLE_MASK,
             pawn_left_mask: PAWN_LEFT_MASK,
             pawn_right_mask: PAWN_RIGHT_MASK,
@@ -82,41 +89,32 @@ impl Constants {
         row * 8 + col
     }
 
-    fn make_attack_mask_hashmap(piece_moves: Vec<Vec<(i32, i32)>>) -> HashMap<u64, u64> {
-        let piece_threat_generator = Self::threat_generator(piece_moves);
-        let mut attack_mask_hashmap: HashMap<u64, u64> = HashMap::with_hasher(Self::get_new_hash_builder());
+    fn make_threat_or_move_hashmap(piece_moves: impl Fn(ChessColor) -> Vec<Vec<(i32, i32)>>, include_piece_spaces: bool) -> HashMap<(ChessColor, u64, u64), u64> {
+        let piece_threat_generator = Self::get_threat_and_move_generator(piece_moves);
+        let mut threat_or_move_hashmap: HashMap<(ChessColor, u64, u64), u64> = HashMap::with_hasher(Self::get_new_hash_builder());
 
-        for i in 0..64 {
-            attack_mask_hashmap.insert(i, piece_threat_generator(i, 0));
-        }
-
-        attack_mask_hashmap
-    }
-
-    fn make_threat_hashmap(piece_moves: Vec<Vec<(i32, i32)>>) -> HashMap<(u64, u64), u64> {
-        let piece_threat_generator = Self::threat_generator(piece_moves);
-        let mut threat_hashmap: HashMap<(u64, u64), u64> = HashMap::with_hasher(Self::get_new_hash_builder());
-
-        for position in 0..64 {
-            let attack_mask = piece_threat_generator(position, 0);
-            let other_piece_combinations: Vec<u64> = Self::get_all_possible_combinations_of_bits(attack_mask);
-
-            for combination in other_piece_combinations {
-                threat_hashmap.insert((position, combination), piece_threat_generator(position, combination));
+        for color in ChessColor::get_color_vector() {
+            for position in 0..64 {
+                let attack_mask = piece_threat_generator(color, position, 0, include_piece_spaces);
+                let other_piece_combinations: Vec<u64> = Self::get_all_possible_combinations_of_bits(attack_mask);
+    
+                for combination in other_piece_combinations {
+                    threat_or_move_hashmap.insert((color, position, combination), piece_threat_generator(color, position, combination, include_piece_spaces));
+                }
             }
         }
 
-        threat_hashmap
+        threat_or_move_hashmap
     }
 
-    fn threat_generator(piece_moves: Vec<Vec<(i32, i32)>>) -> impl Fn(u64, u64) -> u64 {
-        Box::new(move |piece_postition: u64, other_pieces: u64| {
+    fn get_threat_and_move_generator(piece_moves: impl Fn(ChessColor) -> Vec<Vec<(i32, i32)>>) -> impl Fn(ChessColor, u64, u64, bool) -> u64 {
+        Box::new(move |chess_color: ChessColor, piece_postition: u64, other_pieces: u64, include_piece_spaces: bool| {
             let (col, row) = Self::get_coordinates_from_bit_position(piece_postition);
             let col = col as i32;
             let row = row as i32;
 
             let mut res = 0;
-            for move_set in piece_moves.iter() {
+            for move_set in piece_moves(chess_color).iter() {
                 for (col_rel, row_rel) in move_set {
                     let col_sum = col + col_rel;
                     let row_sum = row + row_rel;
@@ -128,8 +126,12 @@ impl Constants {
                     if row_sum < 0 || row_sum > 7 {
                         break;
                     }
-        
+
                     let position = 1 << Self::get_bit_position_from_coordinates(col_sum as u64, row_sum as u64);
+                    if !include_piece_spaces && (position & other_pieces > 0) {
+                        break;
+                    }
+
                     res += position;
 
                     if position & other_pieces > 0 {
@@ -142,7 +144,24 @@ impl Constants {
         })
     }
 
-    fn get_rook_moves() -> Vec<Vec<(i32, i32)>> {
+    fn get_pawn_moves(chess_color: ChessColor) -> Vec<Vec<(i32, i32)>> {
+        match chess_color {
+            ChessColor::White => {
+                vec![
+                    vec![(1, 1)],
+                    vec![(-1, 1)],
+                ]
+            },
+            ChessColor::Black => {
+                vec![
+                    vec![(1, -1)],
+                    vec![(-1, -1)],
+                ]
+            }
+        }
+    }
+
+    fn get_rook_moves(_chess_color: ChessColor) -> Vec<Vec<(i32, i32)>> {
         vec![
             vec![(1, 0), (2, 0), (3, 0), (4, 0), (5, 0), (6, 0), (7, 0)], // Left
             vec![(-1, 0), (-2, 0), (-3, 0), (-4, 0), (-5, 0), (-6, 0), (-7, 0)], // Right
@@ -151,7 +170,7 @@ impl Constants {
         ]
     }
 
-    fn get_bishop_moves() -> Vec<Vec<(i32, i32)>> {
+    fn get_bishop_moves(_chess_color: ChessColor) -> Vec<Vec<(i32, i32)>> {
         vec![
             vec![(1, 1), (2, 2), (3, 3), (4, 4), (5, 5), (6, 6), (7, 7)], // Upper-Left
             vec![(-1, 1), (-2, 2), (-3, 3), (-4, 4), (-5, 5), (-6, 6), (-7, 7)], // Upper-Right
@@ -160,7 +179,7 @@ impl Constants {
         ]
     }
 
-    fn get_knight_moves() -> Vec<Vec<(i32, i32)>> {
+    fn get_knight_moves(_chess_color: ChessColor) -> Vec<Vec<(i32, i32)>> {
         vec![
             vec![(1, 2)],
             vec![(2, 1)],
@@ -173,7 +192,7 @@ impl Constants {
         ]
     }
 
-    fn get_king_moves() -> Vec<Vec<(i32, i32)>> {
+    fn get_king_moves(_chess_color: ChessColor) -> Vec<Vec<(i32, i32)>> {
         vec![
             vec![(1, 1)],
             vec![(0, 1)],
@@ -318,110 +337,163 @@ mod tests {
         assert_eq!(Constants::get_bit_position_from_coordinates(7, 7), 63, "Coordinates (7,7).");
     }
 
-    #[test]
-    fn test_rook_threat_generator() {
-        let rook_threat_generator = Constants::threat_generator(Constants::get_rook_moves());
+    fn test_make_pawn_threat_hashmap() {
+        let hashmap: HashMap<(ChessColor, u64, u64), u64> = Constants::new().pawn_threat_hashmap;
 
         // No other pieces
-        assert_eq!(rook_threat_generator(0, 0), 72_340_172_838_076_926, "Rook bit position 0, no other pieces.");
-        assert_eq!(rook_threat_generator(7, 0), 9_259_542_123_273_814_143, "Rook bit position 7, no other pieces.");
-        assert_eq!(rook_threat_generator(25, 0), 144_680_349_887_234_562, "Rook bit position 25, no other pieces.");
+        assert_eq!(*hashmap.get(&(ChessColor::White, 0, 0)).unwrap(), 512, "White pawn bit position 0, no other pieces.");
+        assert_eq!(*hashmap.get(&(ChessColor::Black, 0, 0)).unwrap(), 0, "Black pawn bit position 0, no other pieces.");
+
+        assert_eq!(*hashmap.get(&(ChessColor::White, 63, 0)).unwrap(), 0, "White pawn bit position 63, no other pieces.");
+        assert_eq!(*hashmap.get(&(ChessColor::Black, 63, 0)).unwrap(), 18_014_398_509_481_984, "Black pawn bit position 63, no other pieces.");
+
+        assert_eq!(*hashmap.get(&(ChessColor::White, 20, 0)).unwrap(), 671_088_640, "White pawn bit position 20, no other pieces.");
+        assert_eq!(*hashmap.get(&(ChessColor::Black, 20, 0)).unwrap(), 1_058_816, "Black pawn bit position 20, no other pieces.");
 
         // Other pieces
-        assert_eq!(rook_threat_generator(28, 17_592_253_153_280), 17_664_865_996_816, "Rook bit position 28, other pieces.");
-        assert_eq!(rook_threat_generator(4, 4_503_599_627_370_497), 4_521_260_802_380_015, "Rook bit position 4, other pieces.");
+        assert_eq!(*hashmap.get(&(ChessColor::White, 20, 134_217_728)).unwrap(), 671_088_640, "White pawn bit position 20, other pieces.");
+        assert_eq!(*hashmap.get(&(ChessColor::Black, 20, 8_192)).unwrap(), 1_058_816, "Black pawn bit position 20, other pieces.");
+    }
+
+    #[test]
+    fn test_make_pawn_move_hashmap() {
+        let hashmap: HashMap<(ChessColor, u64, u64), u64> = Constants::new().pawn_move_hashmap;
+
+        // No other pieces
+        assert_eq!(*hashmap.get(&(ChessColor::White, 0, 0)).unwrap(), 512, "White pawn bit position 0, no other pieces.");
+        assert_eq!(*hashmap.get(&(ChessColor::Black, 0, 0)).unwrap(), 0, "Black pawn bit position 0, no other pieces.");
+
+        assert_eq!(*hashmap.get(&(ChessColor::White, 63, 0)).unwrap(), 0, "White pawn bit position 63, no other pieces.");
+        assert_eq!(*hashmap.get(&(ChessColor::Black, 63, 0)).unwrap(), 18_014_398_509_481_984, "Black pawn bit position 63, no other pieces.");
+
+        assert_eq!(*hashmap.get(&(ChessColor::White, 20, 0)).unwrap(), 671_088_640, "White pawn bit position 20, no other pieces.");
+        assert_eq!(*hashmap.get(&(ChessColor::Black, 20, 0)).unwrap(), 10_240, "Black pawn bit position 20, no other pieces.");
+
+        // Other pieces
+        assert_eq!(*hashmap.get(&(ChessColor::White, 20, 134_217_728)).unwrap(), 536_870_912, "White pawn bit position 20, other pieces.");
+        assert_eq!(*hashmap.get(&(ChessColor::Black, 20, 8_192)).unwrap(), 2_048, "Black pawn bit position 20, other pieces.");
     }
 
     #[test]
     fn test_make_rook_threat_hashmap() {
-        let hashmap: HashMap<(u64, u64), u64> = Constants::make_threat_hashmap(Constants::get_rook_moves());
+        let hashmap: HashMap<(ChessColor, u64, u64), u64> = Constants::new().rook_threat_hashmap;
 
-        // No other pieces
-        assert_eq!(*hashmap.get(&(0, 0)).unwrap(), 72_340_172_838_076_926, "Rook bit position 0, no other pieces.");
-        assert_eq!(*hashmap.get(&(7, 0)).unwrap(), 9_259_542_123_273_814_143, "Rook bit position 7, no other pieces.");
-        assert_eq!(*hashmap.get(&(25, 0)).unwrap(), 144_680_349_887_234_562, "Rook bit position 25, no other pieces.");
+        for color in ChessColor::get_color_vector() {
+            // No other pieces
+            assert_eq!(*hashmap.get(&(color, 0, 0)).unwrap(), 72_340_172_838_076_926, "Rook bit position 0, no other pieces.");
+            assert_eq!(*hashmap.get(&(color, 7, 0)).unwrap(), 9_259_542_123_273_814_143, "Rook bit position 7, no other pieces.");
+            assert_eq!(*hashmap.get(&(color, 25, 0)).unwrap(), 144_680_349_887_234_562, "Rook bit position 25, no other pieces.");
 
-        // Other pieces
-        assert_eq!(*hashmap.get(&(28, 17_592_253_153_280)).unwrap(), 17_664_865_996_816, "Rook bit position 28, other pieces.");
-        assert_eq!(*hashmap.get(&(4, 4_503_599_627_370_497)).unwrap(), 4_521_260_802_380_015, "Rook bit position 4, other pieces.");
+            // Other pieces
+            assert_eq!(*hashmap.get(&(color, 28, 17_592_253_153_280)).unwrap(), 17_664_865_996_816, "Rook bit position 28, other pieces.");
+            assert_eq!(*hashmap.get(&(color, 4, 4_503_599_627_370_497)).unwrap(), 4_521_260_802_380_015, "Rook bit position 4, other pieces.");
+        }
     }
 
     #[test]
-    fn test_bishop_threat_generator() {
-        let bishop_threat_generator = Constants::threat_generator(Constants::get_bishop_moves());
+    fn test_make_rook_move_hashmap() {
+        let hashmap: HashMap<(ChessColor, u64, u64), u64> = Constants::new().rook_move_hashmap;
 
-        // No other pieces
-        assert_eq!(bishop_threat_generator(0, 0), 9_241_421_688_590_303_744, "Bishop bit position 0, no other pieces.");
-        assert_eq!(bishop_threat_generator(63, 0), 18_049_651_735_527_937, "Bishop bit position 63, no other pieces.");
+        for color in ChessColor::get_color_vector() {
+            // No other pieces
+            assert_eq!(*hashmap.get(&(color, 0, 0)).unwrap(), 72_340_172_838_076_926, "Rook bit position 0, no other pieces.");
+            assert_eq!(*hashmap.get(&(color, 7, 0)).unwrap(), 9_259_542_123_273_814_143, "Rook bit position 7, no other pieces.");
+            assert_eq!(*hashmap.get(&(color, 25, 0)).unwrap(), 144_680_349_887_234_562, "Rook bit position 25, no other pieces.");
 
-        // Other pieces
-        assert_eq!(bishop_threat_generator(12, 67_108_864), 550_899_286_056, "Bishop bit position 12, other pieces.");
-        assert_eq!(bishop_threat_generator(14, 34_368_126_976), 34_638_659_744, "Bishop bit position 14 other pieces.");
+            // Other pieces
+            assert_eq!(*hashmap.get(&(color, 28, 1_152_921_504_606_851_072)).unwrap(), 4_521_264_543_694_848, "Rook bit position 28, other pieces.");
+            assert_eq!(*hashmap.get(&(color, 4, 1_152_921_504_606_847_012)).unwrap(), 4_521_260_802_379_784, "Rook bit position 4, other pieces.");
+        }
     }
 
     #[test]
     fn test_make_bishop_threat_hashmap() {
-        let hashmap: HashMap<(u64, u64), u64> = Constants::make_threat_hashmap(Constants::get_bishop_moves());
+        let hashmap: HashMap<(ChessColor, u64, u64), u64> = Constants::new().bishop_threat_hashmap;
 
-        // No other pieces
-        assert_eq!(*hashmap.get(&(0, 0)).unwrap(), 9_241_421_688_590_303_744, "Bishop bit position 0, no other pieces.");
-        assert_eq!(*hashmap.get(&(63, 0)).unwrap(), 18_049_651_735_527_937, "Bishop bit position 63, no other pieces.");
+        for color in ChessColor::get_color_vector() {
+            // No other pieces
+            assert_eq!(*hashmap.get(&(color, 0, 0)).unwrap(), 9_241_421_688_590_303_744, "Bishop bit position 0, no other pieces.");
+            assert_eq!(*hashmap.get(&(color, 63, 0)).unwrap(), 18_049_651_735_527_937, "Bishop bit position 63, no other pieces.");
 
-        // Other pieces
-        assert_eq!(*hashmap.get(&(12, 67_108_864)).unwrap(), 550_899_286_056, "Bishop bit position 12, other pieces.");
-        assert_eq!(*hashmap.get(&(14, 34_368_126_976)).unwrap(), 34_638_659_744, "Bishop bit position 14, other pieces.");
+            // Other pieces
+            assert_eq!(*hashmap.get(&(color, 12, 67_108_864)).unwrap(), 550_899_286_056, "Bishop bit position 12, other pieces.");
+            assert_eq!(*hashmap.get(&(color, 14, 34_368_126_976)).unwrap(), 34_638_659_744, "Bishop bit position 14, other pieces.");
+        }
     }
 
     #[test]
-    fn test_knight_threat_generator() {
-        let knight_threat_generator = Constants::threat_generator(Constants::get_knight_moves());
+    fn test_make_bishop_move_hashmap() {
+        let hashmap: HashMap<(ChessColor, u64, u64), u64> = Constants::new().bishop_move_hashmap;
 
-        // No other pieces
-        assert_eq!(knight_threat_generator(0, 0), 132_096, "Knight bit position 0, no other pieces.");
-        assert_eq!(knight_threat_generator(28, 0), 44_272_527_353_856, "Knight bit position 28, no other pieces.");
+        for color in ChessColor::get_color_vector() {
+            // No other pieces
+            assert_eq!(*hashmap.get(&(color, 0, 0)).unwrap(), 9_241_421_688_590_303_744, "Bishop bit position 0, no other pieces.");
+            assert_eq!(*hashmap.get(&(color, 63, 0)).unwrap(), 18_049_651_735_527_937, "Bishop bit position 63, no other pieces.");
 
-        // Other pieces
-        assert_eq!(knight_threat_generator(0, 131_072), 132_096, "Knight bit position 0, other pieces.");
-        assert_eq!(knight_threat_generator(28, 43_980_469_315_584), 44_272_527_353_856, "Knight bit position 28, other pieces.");
+            // Other pieces
+            assert_eq!(*hashmap.get(&(color, 12, 1_073_741_824)).unwrap(), 1_108_171_292_712, "Bishop bit position 12, other pieces.");
+            assert_eq!(*hashmap.get(&(color, 14, 8_388_736)).unwrap(), 72_624_976_668_131_360, "Bishop bit position 14 other pieces.");
+        }
     }
 
     #[test]
     fn test_make_knight_threat_hashmap() {
-        let hashmap: HashMap<(u64, u64), u64> = Constants::make_threat_hashmap(Constants::get_knight_moves());
+        let hashmap: HashMap<(ChessColor, u64, u64), u64> = Constants::new().knight_threat_hashmap;
 
-        // No other pieces
-        assert_eq!(*hashmap.get(&(0, 0)).unwrap(), 132_096, "Knight bit position 0, no other pieces.");
-        assert_eq!(*hashmap.get(&(28, 0)).unwrap(), 44_272_527_353_856, "Knight bit position 28, no other pieces.");
+        for color in ChessColor::get_color_vector() {
+            // No other pieces
+            assert_eq!(*hashmap.get(&(color, 0, 0)).unwrap(), 132_096, "Knight bit position 0, no other pieces.");
+            assert_eq!(*hashmap.get(&(color, 28, 0)).unwrap(), 44_272_527_353_856, "Knight bit position 28, no other pieces.");
 
-        // Other pieces
-        assert_eq!(*hashmap.get(&(0, 131_072)).unwrap(), 132_096, "Knight bit position 0, other pieces.");
-        assert_eq!(*hashmap.get(&(28, 43_980_469_315_584)).unwrap(), 44_272_527_353_856, "Knight bit position 28, other pieces.");
+            // Other pieces
+            assert_eq!(*hashmap.get(&(color, 0, 131_072)).unwrap(), 132_096, "Knight bit position 0, other pieces.");
+            assert_eq!(*hashmap.get(&(color, 28, 43_980_469_315_584)).unwrap(), 44_272_527_353_856, "Knight bit position 28, other pieces.");
+        }
     }
 
     #[test]
-    fn test_king_threat_generator() {
-        let king_threat_generator = Constants::threat_generator(Constants::get_king_moves());
+    fn test_make_knight_move_hashmap() {
+        let hashmap: HashMap<(ChessColor, u64, u64), u64> = Constants::new().knight_move_hashmap;
 
-        // No other pieces
-        assert_eq!(king_threat_generator(0, 0), 770, "King bit position 0, no other pieces.");
-        assert_eq!(king_threat_generator(14, 0), 14_721_248, "King bit position 14, no other pieces.");
+        for color in ChessColor::get_color_vector() {
+            // No other pieces
+            assert_eq!(*hashmap.get(&(color, 0, 0)).unwrap(), 132_096, "Knight bit position 0, no other pieces.");
+            assert_eq!(*hashmap.get(&(color, 28, 0)).unwrap(), 44_272_527_353_856, "Knight bit position 28, no other pieces.");
 
-        // Other pieces
-        assert_eq!(king_threat_generator(0, 2), 770, "King bit position 0, other pieces.");
-        assert_eq!(king_threat_generator(14, 10_526_720), 14_721_248, "King bit position 0, other pieces.");
+            // Other pieces
+            assert_eq!(*hashmap.get(&(color, 0, 131_072)).unwrap(), 1_024, "Knight bit position 0, other pieces.");
+            assert_eq!(*hashmap.get(&(color, 28, 35_184_372_090_880)).unwrap(), 9_088_155_262_976, "Knight bit position 28, other pieces.");
+        }
     }
 
     #[test]
     fn test_make_king_threat_hashmap() {
-        let hashmap: HashMap<(u64, u64), u64> = Constants::make_threat_hashmap(Constants::get_king_moves());
+        let hashmap: HashMap<(ChessColor, u64, u64), u64> = Constants::new().king_threat_hashmap;
 
-        // No other pieces
-        assert_eq!(*hashmap.get(&(0, 0)).unwrap(), 770, "King bit position 0, no other pieces.");
-        assert_eq!(*hashmap.get(&(14, 0)).unwrap(), 14_721_248, "King bit position 14, no other pieces.");
+        for color in ChessColor::get_color_vector() {
+            // No other pieces
+            assert_eq!(*hashmap.get(&(color, 0, 0)).unwrap(), 770, "King bit position 0, no other pieces.");
+            assert_eq!(*hashmap.get(&(color, 14, 0)).unwrap(), 14_721_248, "King bit position 14, no other pieces.");
 
-        // Other pieces
-        assert_eq!(*hashmap.get(&(0, 2)).unwrap(), 770, "King bit position 0, other pieces.");
-        assert_eq!(*hashmap.get(&(14, 10_526_720)).unwrap(), 14_721_248, "King bit position 0, other pieces.");
+            // Other pieces
+            assert_eq!(*hashmap.get(&(color, 0, 2)).unwrap(), 770, "King bit position 0, other pieces.");
+            assert_eq!(*hashmap.get(&(color, 14, 10_526_720)).unwrap(), 14_721_248, "King bit position 0, other pieces.");
+        }
+    }
+
+    #[test]
+    fn test_make_king_move_hashmap() {
+        let hashmap: HashMap<(ChessColor, u64, u64), u64> = Constants::new().king_move_hashmap;
+
+        for color in ChessColor::get_color_vector() {
+            // No other pieces
+            assert_eq!(*hashmap.get(&(color, 0, 0)).unwrap(), 770, "King bit position 0, no other pieces.");
+            assert_eq!(*hashmap.get(&(color, 14, 0)).unwrap(), 14_721_248, "King bit position 14, no other pieces.");
+
+            // Other pieces
+            assert_eq!(*hashmap.get(&(color, 0, 2)).unwrap(), 768, "King bit position 0, other pieces.");
+            assert_eq!(*hashmap.get(&(color, 14, 10_485_760)).unwrap(), 4_235_488, "King bit position 0, other pieces.");
+        }
     }
 
     #[test]

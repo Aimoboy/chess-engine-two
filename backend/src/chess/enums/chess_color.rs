@@ -1,5 +1,5 @@
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Hash)]
 pub enum ChessColor {
     White = 0,
     Black = 1
@@ -11,6 +11,10 @@ impl ChessColor {
             ChessColor::White => ChessColor::Black,
             ChessColor::Black => ChessColor::White
         }
+    }
+
+    pub fn get_color_vector() -> Vec<ChessColor >{
+        vec![ChessColor::White, ChessColor::Black]
     }
 }
 
