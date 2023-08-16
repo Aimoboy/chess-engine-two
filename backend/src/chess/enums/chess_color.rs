@@ -1,8 +1,8 @@
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ChessColor {
-    White,
-    Black
+    White = 0,
+    Black = 1
 }
 
 impl ChessColor {
