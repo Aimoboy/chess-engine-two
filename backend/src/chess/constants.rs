@@ -220,7 +220,7 @@ impl Constants {
         hashmap
     }
 
-    fn find_bit_positions_from_num(num: u64) -> Vec<u64> {
+    pub fn find_bit_positions_from_num(num: u64) -> Vec<u64> {
         let mut num = num;
         let mut res: Vec<u64> = Vec::new();
 
